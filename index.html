@@ -108,6 +108,17 @@ body {
 	padding: 4px 6px;
 	visibility: visible;
 }
+#status-parts {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 15%;
+	text-align: center;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	font-size: 1rem;
+	visibility: visible;
+}
 		</style>
 		<link id='-gd-engine-icon' rel='icon' type='image/png' href='The Deadseat.icon.png' />
 <link rel='apple-touch-icon' href='The Deadseat.apple-touch-icon.png'/>
@@ -133,8 +144,52 @@ body {
 				<div></div>
 			</div>
 			<div id="status-notice" class="godot" style="display: none;"></div>
+			<div id="status-parts"></div>
 		</div>
 
+		<script>
+// Loads "The Deadseat.pck" from two split parts (same folder as this page) and joins them in the browser.
+// If your parts have different names, edit the two names in the list below.
+const PARTS = {
+	"The Deadseat.pck": {
+		files: ["The Deadseat.pck.001", "The Deadseat.pck.002"],
+		type: "application/octet-stream",
+	},
+};
+
+const realFetch = window.fetch.bind(window);
+function showParts(text) {
+	const el = document.getElementById("status-parts");
+	if (el) el.textContent = text;
+}
+window.fetch = async (input, init) => {
+	const url = typeof input === "string" ? input : (input instanceof URL ? input.href : input.url);
+	// decodeURIComponent so file names with spaces ("The Deadseat") still match
+	const path = decodeURIComponent(new URL(url, document.baseURI).pathname);
+	const name = Object.keys(PARTS).find((n) => path.endsWith("/" + n));
+	if (!name) {
+		return realFetch(input, init);
+	}
+	const { files, type } = PARTS[name];
+	const dir = new URL(".", document.baseURI).href;
+	const chunks = new Array(files.length);
+	let done = 0;
+	showParts(`Game data: 0 / ${files.length} parts`);
+	await Promise.all(files.map(async (f, i) => {
+		const r = await realFetch(dir + encodeURIComponent(f));
+		if (!r.ok) throw new Error("Failed to load " + f + " (HTTP " + r.status + ")");
+		chunks[i] = await r.arrayBuffer();
+		done++;
+		showParts(`Game data: ${done} / ${files.length} parts`);
+	}));
+	showParts("");
+	const blob = new Blob(chunks, { type });
+	return new Response(blob, {
+		status: 200,
+		headers: { "Content-Type": type, "Content-Length": String(blob.size) },
+	});
+};
+		</script>
 		<script src="The Deadseat.js"></script>
 		<script>
 const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"executable":"The Deadseat","experimentalVK":false,"fileSizes":{"The Deadseat.pck":191858224,"The Deadseat.wasm":49126045},"focusCanvas":true,"gdextensionLibs":[]};
